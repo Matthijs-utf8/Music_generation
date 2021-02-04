@@ -28,21 +28,23 @@ class Data:
 
     def get_data(self):
 
+        # Initialize empty array to store the data in
         self.data = np.zeros(shape=(len(os.listdir(self.base_path)), self.max_sequence_length, 3))
 
+        # Loop through all the midi files
         for n, filename in enumerate(os.listdir(self.base_path)):
 
+            # Read midi file and extract relevant messages (only the "note_on" type messages)
             file = mido.MidiFile(self.base_path + filename, clip=True)
             messages = [msg for msg in file.tracks[1] if msg.type == "note_on"]
 
+            # Loop through all the messages and extract the note, velocity and time from them and store them in the data array
             for i, msg in enumerate(messages[:self.max_sequence_length]):
-                if msg.type == "note_on" or msg.type == "note_off":
-                    self.data[n, i, :] = [msg.note,
-                                          msg.velocity,
-                                          mido.tick2second(msg.time, tempo=self.tempo, ticks_per_beat=self.ticks_per_beat)]
-                else:
-                    continue
+                self.data[n, i, :] = [msg.note,
+                                      msg.velocity,
+                                      mido.tick2second(msg.time, tempo=self.tempo, ticks_per_beat=self.ticks_per_beat)]
 
+        # Normalize the data
         self.maxima = np.max(self.data, axis=(0, 1))
         self.data = self.data / self.maxima
 
