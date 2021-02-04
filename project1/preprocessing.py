@@ -1,32 +1,52 @@
 import numpy as np
 import pandas as pd
+from utils import *
 # import keras
 import matplotlib.pyplot as plt
-import librosa
 import os
-import json
 import pygame
-from mido import MidiFile
 import mido
+from tqdm import tqdm
 
-base_path = "C:\\Users\\matth\\PycharmProjects\\Data_for_all_projects\\Music_generator_project1\\maestro-v3.0.0\\2004\\"
-test_file = "MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_05_Track05_wav.midi"
+class Data:
 
-# mixer config
-freq = 44100  # audio CD quality
-bitsize = -16   # unsigned 16 bit
-channels = 2  # 1 is mono, 2 is stereo
-buffer = 1024   # number of samples
-pygame.mixer.init(freq, bitsize, channels, buffer)
+    def __init__(self, base_path):
 
-def play_music(midi_filename):
-  '''Stream music_file in a blocking manner'''
-  clock = pygame.time.Clock()
-  pygame.mixer.music.load(midi_filename)
-  pygame.mixer.music.play()
-  while pygame.mixer.music.get_busy():
-    clock.tick(30) # check if playback has finished
+        # Get the class name
+        from traceback import extract_stack
+        (filename, line_number, function_name, text) = extract_stack()[-2]
+        self.name = text[:text.find('=')].strip()
+
+        # Config
+        self.base_path = base_path
+        self.ticks_per_beat = 480
+        self.tempo = int(0.5E6) # [microseconds]
+        self.max_sequence_length = int(15E3)
+
+        # get data
+        self.get_data()
+
+    def get_data(self):
+
+        self.data = np.zeros(shape=(len(os.listdir(self.base_path)), self.max_sequence_length, 3))
+
+        for n, filename in enumerate(os.listdir(self.base_path)):
+
+            file = mido.MidiFile(self.base_path + filename, clip=True)
+            messages = [msg for msg in file.tracks[1] if msg.type == "note_on"]
+
+            for i, msg in enumerate(messages[:self.max_sequence_length]):
+                if msg.type == "note_on" or msg.type == "note_off":
+                    self.data[n, i, :] = [msg.note,
+                                          msg.velocity,
+                                          mido.tick2second(msg.time, tempo=self.tempo, ticks_per_beat=self.ticks_per_beat)]
+                else:
+                    continue
+
+        self.maxima = np.max(self.data, axis=(0, 1))
+        self.data = self.data / self.maxima
 
 
-play_music(base_path+test_file)
+# data = Data(base_path="C:\\Users\\matth\\PycharmProjects\\Data_for_all_projects\\Music_generator_project1\\maestro-v3.0.0\\2004\\")
+# save_class_as_pickle(data)
 
